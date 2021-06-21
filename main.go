@@ -9,8 +9,27 @@ import (
 )
 
 type VersionWorkerResult struct {
-	asserts  []string
-	libraies []string
+	client          string
+	client_mappings string
+	server          string
+	server_mappings string
+	asserts         []string
+	libraies        []string
+}
+
+func appendCategory(a []string, b []string) []string {
+	check := make(map[string]int)
+	d := append(a, b...)
+	res := make([]string, 0)
+	for _, val := range d {
+		check[val] = 1
+	}
+
+	for letter, _ := range check {
+		res = append(res, letter)
+	}
+
+	return res
 }
 
 func versionWorker(jobs <-chan string, result chan<- VersionWorkerResult) {
@@ -29,6 +48,12 @@ func versionWorker(jobs <-chan string, result chan<- VersionWorkerResult) {
 		for _, value := range gjson.Get(string(body), "libraries.#.downloads.artifact.url").Array() {
 			library_urls = append(library_urls, value.String())
 		}
+
+		client_url := gjson.Get(string(body), "downloads.client.url").String()
+		client_mappings_url := gjson.Get(string(body), "downloads.client_mappings.url").String()
+		server_url := gjson.Get(string(body), "downloads.server.url").String()
+		server_mappings_url := gjson.Get(string(body), "downloads.server_mappings.url").String()
+
 		asserts_url := gjson.Get(string(body), "assetIndex.url").String()
 		resp, err = http.Get(asserts_url)
 		if err != nil {
@@ -45,7 +70,7 @@ func versionWorker(jobs <-chan string, result chan<- VersionWorkerResult) {
 		for _, element := range resultMap {
 			object_urls = append(object_urls, element.Get("hash").String())
 		}
-		result <- VersionWorkerResult{library_urls, object_urls}
+		result <- VersionWorkerResult{client_url, client_mappings_url, server_url, server_mappings_url, object_urls, library_urls}
 	}
 }
 
@@ -71,7 +96,20 @@ func main() {
 		jobs <- value.String()
 	}
 	close(jobs)
+	var client_jars []string = make([]string, 0)
+	var client_mappings []string = make([]string, 0)
+	var server_jars []string = make([]string, 0)
+	var server_mappings []string = make([]string, 0)
+	var libraries []string = make([]string, 0)
+	var objects []string = make([]string, 0)
 	for a := 0; a < len(version_urls.Array()); a++ {
-		fmt.Println(<-result)
+		worker_result := <-result
+		client_jars = append(client_jars, worker_result.client)
+		client_mappings = append(client_mappings, worker_result.client_mappings)
+		server_jars = append(server_jars, worker_result.server)
+		server_mappings = append(server_mappings, worker_result.server_mappings)
+		libraries = appendCategory(libraries, worker_result.libraies)
+		objects = appendCategory(objects, worker_result.asserts)
 	}
+	fmt.Println(objects)
 }
