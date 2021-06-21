@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"sync"
 
 	"github.com/tidwall/gjson"
 )
@@ -25,11 +29,48 @@ func appendCategory(a []string, b []string) []string {
 		check[val] = 1
 	}
 
-	for letter, _ := range check {
+	for letter := range check {
 		res = append(res, letter)
 	}
 
 	return res
+}
+
+func DownloadFile(jobs <-chan [2]string, wg *sync.WaitGroup) error {
+	defer wg.Done()
+	for job := range jobs {
+		// Get the data
+		fmt.Println(job)
+		resp, err := http.Get(job[0])
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+
+		// Create the file
+		if _, err := os.Stat(filepath.Dir(job[1])); os.IsNotExist(err) {
+			err := os.MkdirAll(filepath.Dir(job[1]), os.ModePerm)
+			if err != nil {
+				fmt.Println(err)
+				return err
+			}
+		}
+		out, err := os.Create(job[1])
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+
+		// Write the body to file
+		_, err = io.Copy(out, resp.Body)
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+		resp.Body.Close()
+		out.Close()
+	}
+	return nil
 }
 
 func versionWorker(jobs <-chan string, result chan<- VersionWorkerResult) {
@@ -40,6 +81,7 @@ func versionWorker(jobs <-chan string, result chan<- VersionWorkerResult) {
 			panic("Can't get version Info.")
 		}
 		body, err := io.ReadAll(resp.Body)
+		defer resp.Body.Close()
 		if err != nil {
 			fmt.Println(err)
 			panic("Can't read verison info body.")
@@ -60,6 +102,7 @@ func versionWorker(jobs <-chan string, result chan<- VersionWorkerResult) {
 			fmt.Println(err)
 			panic("Can't get version Info.")
 		}
+		defer resp.Body.Close()
 		body, err = io.ReadAll(resp.Body)
 		if err != nil {
 			fmt.Println(err)
@@ -111,5 +154,40 @@ func main() {
 		libraries = appendCategory(libraries, worker_result.libraies)
 		objects = appendCategory(objects, worker_result.asserts)
 	}
-	fmt.Println(objects)
+
+	var wg sync.WaitGroup
+	donwload_jobs := make(chan [2]string, len(libraries))
+	for w := 0; w < 10; w++ {
+		wg.Add(1)
+		go DownloadFile(donwload_jobs, &wg)
+	}
+	for _, library_url := range libraries {
+		urlObject, err := url.Parse(library_url)
+		if err != nil {
+			fmt.Println(err)
+			panic("parse url fails.")
+		}
+		var a [2]string
+		a[0] = library_url
+		a[1] = fmt.Sprintf("./cache/library%s", urlObject.Path)
+		donwload_jobs <- a
+		fmt.Println(urlObject.Path)
+	}
+	close(donwload_jobs)
+	wg.Wait()
+
+	donwload_jobs = make(chan [2]string, len(objects))
+	for w := 0; w < 10; w++ {
+		wg.Add(1)
+		go DownloadFile(donwload_jobs, &wg)
+	}
+	for _, object := range objects {
+		var a [2]string
+		a[0] = fmt.Sprintf("http://resources.download.minecraft.net/%s/%s", object[:2], object)
+		a[1] = fmt.Sprintf("./cache/asserts/objects/%s/%s", object[:2], object)
+		donwload_jobs <- a
+		fmt.Println(a[1])
+	}
+	close(donwload_jobs)
+	wg.Wait()
 }
