@@ -147,10 +147,18 @@ func main() {
 	var objects []string = make([]string, 0)
 	for a := 0; a < len(version_urls.Array()); a++ {
 		worker_result := <-result
-		client_jars = append(client_jars, worker_result.client)
-		client_mappings = append(client_mappings, worker_result.client_mappings)
-		server_jars = append(server_jars, worker_result.server)
-		server_mappings = append(server_mappings, worker_result.server_mappings)
+		if worker_result.client != "" {
+			client_jars = append(client_jars, worker_result.client)
+		}
+		if worker_result.client_mappings != "" {
+			client_mappings = append(client_mappings, worker_result.client_mappings)
+		}
+		if worker_result.server != "" {
+			server_jars = append(server_jars, worker_result.server)
+		}
+		if worker_result.server_mappings != "" {
+			server_mappings = append(server_mappings, worker_result.server_mappings)
+		}
 		libraries = appendCategory(libraries, worker_result.libraies)
 		objects = appendCategory(objects, worker_result.asserts)
 	}
@@ -183,10 +191,90 @@ func main() {
 	}
 	for _, object := range objects {
 		var a [2]string
-		a[0] = fmt.Sprintf("http://resources.download.minecraft.net/%s/%s", object[:2], object)
+		a[0] = fmt.Sprintf("https://resources.download.minecraft.net/%s/%s", object[:2], object)
 		a[1] = fmt.Sprintf("./cache/asserts/objects/%s/%s", object[:2], object)
 		donwload_jobs <- a
 		fmt.Println(a[1])
+	}
+	close(donwload_jobs)
+	wg.Wait()
+
+	donwload_jobs = make(chan [2]string, len(client_jars))
+	for w := 0; w < 10; w++ {
+		wg.Add(1)
+		go DownloadFile(donwload_jobs, &wg)
+	}
+	for _, client_jar_url := range client_jars {
+		urlObject, err := url.Parse(client_jar_url)
+		if err != nil {
+			fmt.Println(err)
+			panic("parse url fails.")
+		}
+		var a [2]string
+		a[0] = client_jar_url
+		a[1] = fmt.Sprintf("./cache/jars%s", urlObject.Path)
+		donwload_jobs <- a
+		fmt.Println(urlObject.Path)
+	}
+	close(donwload_jobs)
+	wg.Wait()
+
+	donwload_jobs = make(chan [2]string, len(client_mappings))
+	for w := 0; w < 10; w++ {
+		wg.Add(1)
+		go DownloadFile(donwload_jobs, &wg)
+	}
+	for _, client_mapping_url := range client_mappings {
+		urlObject, err := url.Parse(client_mapping_url)
+		if err != nil {
+			fmt.Println(err)
+			panic("parse url fails.")
+		}
+		var a [2]string
+		a[0] = client_mapping_url
+		a[1] = fmt.Sprintf("./cache/jars%s", urlObject.Path)
+		donwload_jobs <- a
+		fmt.Println(urlObject.Path)
+	}
+	close(donwload_jobs)
+	wg.Wait()
+
+	donwload_jobs = make(chan [2]string, len(server_jars))
+	for w := 0; w < 10; w++ {
+		wg.Add(1)
+		go DownloadFile(donwload_jobs, &wg)
+	}
+	for _, server_jar_url := range server_jars {
+		urlObject, err := url.Parse(server_jar_url)
+		if err != nil {
+			fmt.Println(err)
+			panic("parse url fails.")
+		}
+		var a [2]string
+		a[0] = server_jar_url
+		a[1] = fmt.Sprintf("./cache/jars%s", urlObject.Path)
+		donwload_jobs <- a
+		fmt.Println(urlObject.Path)
+	}
+	close(donwload_jobs)
+	wg.Wait()
+
+	donwload_jobs = make(chan [2]string, len(server_mappings))
+	for w := 0; w < 10; w++ {
+		wg.Add(1)
+		go DownloadFile(donwload_jobs, &wg)
+	}
+	for _, server_mapping_url := range server_mappings {
+		urlObject, err := url.Parse(server_mapping_url)
+		if err != nil {
+			fmt.Println(err)
+			panic("parse url fails.")
+		}
+		var a [2]string
+		a[0] = server_mapping_url
+		a[1] = fmt.Sprintf("./cache/jars%s", urlObject.Path)
+		donwload_jobs <- a
+		fmt.Println(urlObject.Path)
 	}
 	close(donwload_jobs)
 	wg.Wait()
