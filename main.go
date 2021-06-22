@@ -44,7 +44,7 @@ func DownloadFile(jobs <-chan [2]string, wg *sync.WaitGroup) error {
 		resp, err := http.Get(job[0])
 		if err != nil {
 			fmt.Println(err)
-			return err
+			continue
 		}
 
 		// Create the file
@@ -52,20 +52,20 @@ func DownloadFile(jobs <-chan [2]string, wg *sync.WaitGroup) error {
 			err := os.MkdirAll(filepath.Dir(job[1]), os.ModePerm)
 			if err != nil {
 				fmt.Println(err)
-				return err
+				continue
 			}
 		}
 		out, err := os.Create(job[1])
 		if err != nil {
 			fmt.Println(err)
-			return err
+			continue
 		}
 
 		// Write the body to file
 		_, err = io.Copy(out, resp.Body)
 		if err != nil {
 			fmt.Println(err)
-			return err
+			continue
 		}
 		resp.Body.Close()
 		out.Close()
@@ -177,7 +177,7 @@ func main() {
 		}
 		var a [2]string
 		a[0] = library_url
-		a[1] = fmt.Sprintf("./cache/library%s", urlObject.Path)
+		a[1] = fmt.Sprintf("./cache%s", urlObject.Path)
 		donwload_jobs <- a
 		fmt.Println(urlObject.Path)
 	}
@@ -192,7 +192,7 @@ func main() {
 	for _, object := range objects {
 		var a [2]string
 		a[0] = fmt.Sprintf("https://resources.download.minecraft.net/%s/%s", object[:2], object)
-		a[1] = fmt.Sprintf("./cache/asserts/objects/%s/%s", object[:2], object)
+		a[1] = fmt.Sprintf("./cache/%s/%s", object[:2], object)
 		donwload_jobs <- a
 		fmt.Println(a[1])
 	}
@@ -212,7 +212,7 @@ func main() {
 		}
 		var a [2]string
 		a[0] = client_jar_url
-		a[1] = fmt.Sprintf("./cache/jars%s", urlObject.Path)
+		a[1] = fmt.Sprintf("./cache%s", urlObject.Path)
 		donwload_jobs <- a
 		fmt.Println(urlObject.Path)
 	}
@@ -232,7 +232,7 @@ func main() {
 		}
 		var a [2]string
 		a[0] = client_mapping_url
-		a[1] = fmt.Sprintf("./cache/jars%s", urlObject.Path)
+		a[1] = fmt.Sprintf("./cache%s", urlObject.Path)
 		donwload_jobs <- a
 		fmt.Println(urlObject.Path)
 	}
@@ -252,7 +252,7 @@ func main() {
 		}
 		var a [2]string
 		a[0] = server_jar_url
-		a[1] = fmt.Sprintf("./cache/jars%s", urlObject.Path)
+		a[1] = fmt.Sprintf("./cache%s", urlObject.Path)
 		donwload_jobs <- a
 		fmt.Println(urlObject.Path)
 	}
@@ -272,7 +272,7 @@ func main() {
 		}
 		var a [2]string
 		a[0] = server_mapping_url
-		a[1] = fmt.Sprintf("./cache/jars%s", urlObject.Path)
+		a[1] = fmt.Sprintf("./cache%s", urlObject.Path)
 		donwload_jobs <- a
 		fmt.Println(urlObject.Path)
 	}
